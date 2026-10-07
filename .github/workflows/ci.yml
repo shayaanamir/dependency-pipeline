@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # Build + unit/integration tests + smoke test, on each Node version
+  test:
+    name: test (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            client/package-lock.json
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Server tests (unit + integration)
+        working-directory: server
+        run: npm test
+
+      - name: Compatibility smoke test (start server, call API)
+        working-directory: server
+        run: |
+          node src/index.js &
+          SERVER_PID=$!
+          sleep 3
+          CREATE=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3001/books \
+            -H 'Content-Type: application/json' \
+            -d '{"title":"Dune","author":"Frank Herbert"}')
+          MISSING=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3001/books/999)
+          kill $SERVER_PID
+          echo "POST /books -> $CREATE (expected 201)"
+          echo "GET /books/999 -> $MISSING (expected 404)"
+          test "$CREATE" = "201" && test "$MISSING" = "404"
+
+      - name: Install client dependencies
+        working-directory: client
+        run: npm ci
+
+      - name: Build client
+        working-directory: client
+        run: npm run build
+
+  # Known-vulnerability scan for both packages
+  security:
+    name: security (npm audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Audit server
+        working-directory: server
+        run: npm audit --audit-level=high
+
+      - name: Audit client
+        working-directory: client
+        run: npm audit --audit-level=high
+
+  # Only builds the image if tests and security both passed
+  docker:
+    name: docker build
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t dependency-pipeline ./server
+
+  # Single pass/fail result to use as the required check for merging
+  quality-gate:
+    name: quality-gate
+    runs-on: ubuntu-latest
+    needs: [test, security, docker]
+    if: always()
+    steps:
+      - name: Evaluate results
+        run: |
+          echo "test:     ${{ needs.test.result }}"
+          echo "security: ${{ needs.security.result }}"
+          echo "docker:   ${{ needs.docker.result }}"
+          if [ "${{ needs.test.result }}" != "success" ] || \
+             [ "${{ needs.security.result }}" != "success" ] || \
+             [ "${{ needs.docker.result }}" != "success" ]; then
+            echo "Quality gate FAILED - merge blocked"
+            exit 1
+          fi
+          echo "Quality gate PASSED - merge allowed"
