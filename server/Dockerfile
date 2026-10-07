@@ -1,7 +1,7 @@
 # ==========================================
 # Stage 1: Build React frontend
 # ==========================================
-FROM node:22-alpine AS frontend-build
+FROM node:26-alpine AS frontend-build
 
 WORKDIR /frontend
 
@@ -16,7 +16,7 @@ RUN npm run build
 # ==========================================
 # Stage 2: Run Express backend
 # ==========================================
-FROM node:22-alpine
+FROM node:26-alpine
 
 WORKDIR /app
 
