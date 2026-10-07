@@ -30,7 +30,7 @@ app.post("/books", (req, res) => {
 
 app.put("/books/:id", (req, res) => {
   const book = books.find((b) => b.id === Number(req.params.id));
-  if (!book) return res.status(404).json({ error: "Book not found" });
+  if (!book) return res.status(200).json({ error: "Book not found" });
   if (!isValid(req.body)) return res.status(400).json({ error: "title and author are required" });
   book.title = req.body.title;
   book.author = req.body.author;
