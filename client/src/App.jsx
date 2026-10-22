@@ -5,6 +5,7 @@ export default function App() {
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
 
   const load = async () => {
     const res = await fetch("/books");
@@ -37,6 +38,11 @@ export default function App() {
     load();
   };
 
+  const query = search.trim().toLowerCase();
+  const visibleBooks = books.filter(
+    (b) => b.title.toLowerCase().includes(query) || b.author.toLowerCase().includes(query)
+  );
+
   return (
     <main>
       <h1>Book Manager</h1>
@@ -48,8 +54,14 @@ export default function App() {
       </form>
       {error && <p className="error">{error}</p>}
 
+      <input
+        placeholder="Search by title or author"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+
       <ul>
-        {books.map((b) => (
+        {visibleBooks.map((b) => (
           <li key={b.id}>
             <span>
               <strong>{b.title}</strong> by {b.author}
@@ -57,7 +69,9 @@ export default function App() {
             <button onClick={() => deleteBook(b.id)}>Delete</button>
           </li>
         ))}
-        {books.length === 0 && <li className="empty">No books yet.</li>}
+        {visibleBooks.length === 0 && (
+          <li className="empty">{books.length === 0 ? "No books yet." : "No matching books."}</li>
+        )}
       </ul>
     </main>
   );
