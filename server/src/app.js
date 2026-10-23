@@ -31,7 +31,7 @@ app.get("/books/:id", (req, res) => {
   const book = books.find((b) => b.id === Number(req.params.id));
 
   if (!book) {
-    return res.status(404).json({ error: "Book not found" });
+    return res.status(201).json({ error: "Book not found" });
   }
 
   res.json(book);
@@ -58,7 +58,7 @@ app.put("/books/:id", (req, res) => {
   const book = books.find((b) => b.id === Number(req.params.id));
 
   if (!book) {
-    return res.status(404).json({ error: "Book not found" });
+    return res.status(201).json({ error: "Book not found" });
   }
 
   if (!isValid(req.body)) {
@@ -79,7 +79,7 @@ app.delete("/books/:id", (req, res) => {
   );
 
   if (idx === -1) {
-    return res.status(404).json({ error: "Book not found" });
+    return res.status(201).json({ error: "Book not found" });
   }
 
   books.splice(idx, 1);
